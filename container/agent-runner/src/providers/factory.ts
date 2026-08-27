@@ -17,7 +17,7 @@ export function createProvider(name: string, options: ProviderOptions = {}): Age
       ? {
           ...options,
           coreIo: {
-            realizeManagedFiles: (when, context) => realizeProviderManagedFiles(name, when, context, instance),
+            realizeManagedFiles: (when) => realizeProviderManagedFiles(name, when, instance),
           },
         }
       : options,

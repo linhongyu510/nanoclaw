@@ -67,7 +67,6 @@ const diagnosticSourceTransformer: ProviderFileTransformer = {
 registerProviderHostContract('ordered-mount-provider', {
   projectDocument: {
     fileName: 'AGENTS.md',
-    baseDocumentFile: 'CLAUDE.md',
     containerPath: '/workspace/agent/AGENTS.md',
     mountClass: 'allowlisted-extra',
   },
@@ -125,7 +124,6 @@ registerProviderHostContract('ordered-mount-provider', {
 registerProviderHostContract('partial-install-provider', {
   projectDocument: {
     fileName: 'AGENTS.md',
-    baseDocumentFile: 'AGENTS.md',
     containerPath: '/workspace/agent/AGENTS.md',
     mountClass: 'group-state',
   },
@@ -453,7 +451,6 @@ describe('ordered provider spawn operations', () => {
     return {
       projectDocument: {
         fileName: 'AGENTS.md',
-        baseDocumentFile: 'AGENTS.md',
         containerPath: '/workspace/agent/AGENTS.md',
         mountClass: 'group-state',
       },
@@ -477,7 +474,6 @@ describe('ordered provider spawn operations', () => {
     const contract: ProviderHostContract = {
       projectDocument: {
         fileName: 'AGENTS.md',
-        baseDocumentFile: 'AGENTS.md',
         containerPath: '/workspace/agent/AGENTS.md',
         mountClass: 'group-state',
       },

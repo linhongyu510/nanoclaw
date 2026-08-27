@@ -105,7 +105,7 @@ export interface ProviderOptions {
   fastMode?: boolean;
   /** Core-owned provider I/O, bound to the selected provider by new core. */
   coreIo?: {
-    realizeManagedFiles(when: RuntimeManagedFile['when'], context: unknown): void;
+    realizeManagedFiles(when: RuntimeManagedFile['when']): void;
   };
 }
 
