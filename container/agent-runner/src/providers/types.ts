@@ -99,10 +99,10 @@ export interface ProviderOptions {
    */
   effort?: string;
   /**
-   * API fast serving tier: faster output at a higher per-token price. Passed
-   * through to the underlying SDK. If omitted, the SDK default is used.
+   * Speed tier (`standard` or `fast`), mapped to the provider's native knob
+   * (`fast` → Claude's `fastMode`, Codex's `service_tier`).
    */
-  fastMode?: boolean;
+  speed?: string;
   /** Core-owned provider I/O, bound to the selected provider by new core. */
   coreIo?: {
     realizeManagedFiles(when: RuntimeManagedFile['when']): void;

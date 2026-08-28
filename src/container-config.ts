@@ -249,8 +249,8 @@ export interface ContainerConfig {
   maxMessagesPerPrompt?: number;
   model?: string;
   effort?: string;
-  /** API fast serving tier for this container; absent = the provider default. */
-  fastMode?: boolean;
+  /** Provider-mapped speed tier (`standard` or `fast`); the group value overrides the install default. */
+  speed?: string;
   timezone?: string;
   /** Session isolation tier for the group's containers; absent = the composer's default ('container'). */
   runtimeTier?: 'container' | 'vm';
@@ -374,7 +374,8 @@ export function configFromDb(row: ContainerConfigRow, group: AgentGroup): Contai
     // that have none. Both absent leaves the field out and the SDK decides.
     model: row.model ?? (DEFAULT_MODEL || undefined),
     effort: row.effort ?? undefined,
-    fastMode: FAST_MODE || undefined,
+    // A cleared group value falls back to the install-wide default.
+    speed: row.speed ?? (FAST_MODE ? 'fast' : undefined),
     timezone: row.timezone && isValidTimezone(row.timezone) ? row.timezone : undefined,
     runtimeTier: parseRuntimeTier(row.runtime_tier, group.name),
   };

@@ -26,7 +26,7 @@ export interface RuntimeMemoryHookInput {
 export interface RuntimeConfigurationInputs {
   /** No core-varied input: the container is the security boundary, always. */
   executionPolicy: undefined;
-  inference: { model?: string; effort?: string; fastMode?: boolean };
+  inference: { model?: string; effort?: string; speed?: string };
   memory: RuntimeMemoryHookInput;
   mcpServers: Record<string, McpServerConfig>;
 }

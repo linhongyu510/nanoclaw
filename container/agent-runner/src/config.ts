@@ -20,8 +20,7 @@ export interface RunnerConfig {
   mcpServers: Record<string, McpServerConfig>;
   model?: string;
   effort?: string;
-  /** API fast serving tier (host-configured; see the host's container-config). */
-  fastMode?: boolean;
+  speed?: string;
 }
 
 const DEFAULT_MAX_MESSAGES = 10;
@@ -51,7 +50,7 @@ export function loadConfig(): RunnerConfig {
     mcpServers: (raw.mcpServers as RunnerConfig['mcpServers']) || {},
     model: (raw.model as string) || undefined,
     effort: (raw.effort as string) || undefined,
-    fastMode: raw.fastMode === true || undefined,
+    speed: (raw.speed as string) || undefined,
   };
 
   return _config;
