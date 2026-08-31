@@ -26,6 +26,7 @@
     "ncl": "tsx src/cli/client.ts",
     "migrate": "tsx scripts/migrate.ts",
     "chat": "tsx scripts/chat.ts",
+    "local-web": "tsx scripts/local-web-url.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "test": "vitest run",
@@ -39,6 +40,7 @@
     "chat": "4.29.0",
     "cron-parser": "5.5.0",
     "kleur": "^4.1.5",
+    "markdown-it": "15.0.0",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

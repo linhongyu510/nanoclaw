@@ -10,10 +10,16 @@ export default [
     languageOptions: {
       globals: globals.node,
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['src/channels/local-web-*.js'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    files: ['src/channels/local-web-*.js'],
+    languageOptions: { globals: globals.browser },
   },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
