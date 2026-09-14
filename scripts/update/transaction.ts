@@ -335,6 +335,9 @@ export async function validateUpdate(
     refreshPreparedState(state, runtime);
 
     const checks: string[] = [];
+    // Cheap, and it names the offending path while nothing is stopped yet.
+    assertMutableRootsResolvable(state.projectRoot);
+    checks.push('mutable-state roots resolvable');
     runtime.runner.run('pnpm', ['install', '--frozen-lockfile'], state.stageRoot);
     checks.push('host dependencies');
     runtime.runner.run('pnpm', ['run', 'build'], state.stageRoot);
@@ -374,13 +377,22 @@ export async function validateUpdate(
 
 const MUTABLE_PATHS = ['.env', 'data', 'groups', 'store', 'start-nanoclaw.sh', 'nanoclaw.pid'];
 
-function lstatIfExists(source: string): fs.Stats | undefined {
-  try {
-    return fs.lstatSync(source);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-    throw err;
+// A mutable root that is a symlink to nowhere makes the snapshot walk throw a
+// bare ENOENT. Report it by name up front so the operator is not told merely
+// that a path does not exist, after a stop/drain cycle has already run.
+function assertMutableRootsResolvable(projectRoot: string): void {
+  for (const relativePath of MUTABLE_PATHS) {
+    const source = path.join(projectRoot, relativePath);
+    const stat = lstatIfExists(source);
+    if (stat?.isSymbolicLink() !== true) continue;
+    if (!fs.existsSync(source)) {
+      throw new Error(`Mutable-state symlink points at a missing target: ${source} -> ${fs.readlinkSync(source)}`);
+    }
   }
+}
+
+function lstatIfExists(source: string): fs.Stats | undefined {
+  return fs.lstatSync(source, { throwIfNoEntry: false });
 }
 
 function copyEntry(source: string, destination: string, dereferenceRoot = false): void {
@@ -458,7 +470,12 @@ function entrySize(source: string, dereferenceRoot = false): number {
   return fs.readdirSync(source).reduce((total, entry) => total + entrySize(path.join(source, entry)), 0);
 }
 
-function restoreSnapshot(state: UpdateState): void {
+// Every reason a restore cannot proceed, checked without touching live state.
+// `rollbackLocal` runs this BEFORE it stops the service or resets the checkout,
+// so an unrestorable rollback fails with the service still up and the code
+// still at the new head, rather than stranding a stopped service on old code
+// with a forward-migrated database.
+function assertSnapshotRestorable(state: UpdateState): void {
   if (!state.snapshot) throw new Error('No mutable-state snapshot exists');
   const snapshotRoot = path.join(state.transactionRoot, 'snapshot');
   // Abort BEFORE touching live state when the snapshot is gone — discovering
@@ -467,16 +484,34 @@ function restoreSnapshot(state: UpdateState): void {
   for (const entry of state.snapshot) {
     if (entry.symlinkTarget === undefined) continue;
     const target = path.join(state.projectRoot, entry.relativePath);
-    const stat = fs.lstatSync(target);
-    if (!stat.isSymbolicLink() || fs.readlinkSync(target) !== entry.symlinkTarget) {
+    // A deleted link is a changed link: `undefined` must reach the descriptive
+    // error below rather than throwing a bare ENOENT from `lstatSync`.
+    const stat = lstatIfExists(target);
+    if (stat?.isSymbolicLink() !== true || fs.readlinkSync(target) !== entry.symlinkTarget) {
       throw new Error(`Mutable-state symlink changed after snapshot: ${target}`);
     }
   }
-  for (const entry of state.snapshot) {
+}
+
+function restoreSnapshot(state: UpdateState): void {
+  assertSnapshotRestorable(state);
+  const snapshotRoot = path.join(state.transactionRoot, 'snapshot');
+  for (const entry of state.snapshot ?? []) {
     const target = path.join(state.projectRoot, entry.relativePath);
     const restoreTarget =
       entry.symlinkTarget === undefined ? target : realResolve(path.resolve(path.dirname(target), entry.symlinkTarget));
-    fs.rmSync(restoreTarget, { recursive: true, force: true });
+    // A symlinked root's target is the operator's directory, not ours: it may be
+    // a mount point or sit under a parent we cannot write, so removing the
+    // directory inode itself can fail AFTER its contents are gone. Empty it in
+    // place and restore into it, preserving the inode, mode, and ownership.
+    const keepDirectory = entry.symlinkTarget !== undefined && lstatIfExists(restoreTarget)?.isDirectory() === true;
+    if (keepDirectory) {
+      for (const child of fs.readdirSync(restoreTarget)) {
+        fs.rmSync(path.join(restoreTarget, child), { recursive: true, force: true });
+      }
+    } else {
+      fs.rmSync(restoreTarget, { recursive: true, force: true });
+    }
     if (entry.existed) copyEntry(path.join(snapshotRoot, entry.relativePath), restoreTarget);
   }
 }
@@ -494,6 +529,11 @@ function installAndBuild(root: string, state: UpdateState, runtime: UpdateRuntim
 
 async function rollbackLocal(state: UpdateState, runtime: UpdateRuntime): Promise<void> {
   if (!state.service) throw new Error('Update state has no captured service handle for rollback');
+  // Fail closed while the service is still up and the checkout still at the new
+  // head: a missing snapshot or a repointed symlink cannot be fixed by anything
+  // below, and discovering it after the stop/reset leaves the operator with a
+  // stopped service on old code and a forward-migrated database.
+  assertSnapshotRestorable(state);
   // On the cutover failure path the service was already stopped by cutover
   // itself; `stopService` is idempotent per mode (already-stopped is success
   // in the manager's own vocabulary — see its header), so this cannot abort
@@ -528,6 +568,9 @@ export async function cutoverUpdate(
   if (git(runtime, state.projectRoot, ['rev-parse', 'HEAD']) !== state.originalHead) {
     throw new Error('Live checkout moved after the update was staged');
   }
+  // Re-check here too: validation may have run long ago, and this is the last
+  // point before the stop/drain cycle that the snapshot walk depends on.
+  assertMutableRootsResolvable(state.projectRoot);
 
   state.service = runtime.detectService(state.projectRoot);
   await runtime.stopService(state.service);
